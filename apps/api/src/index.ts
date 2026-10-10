@@ -8,7 +8,15 @@ import { PrismaClient, Rol, EstadoPartido, TipoEvento, EstadoActa, FaseTorneo } 
 
 const app = express();
 const prisma = new PrismaClient();
-app.use(cors()); app.use(express.json());
+app.use(cors({methods:['GET','HEAD','POST','PUT','PATCH','DELETE','OPTIONS'],allowedHeaders:['Content-Type','Authorization']}));
+app.options('*', cors({methods:['GET','HEAD','POST','PUT','PATCH','DELETE','OPTIONS'],allowedHeaders:['Content-Type','Authorization']}));
+app.use(express.json());
+// Vercel puede montar la Function bajo /api y entregar la ruta sin ese prefijo.
+// Normalizamos ambos casos porque las rutas Express del proyecto están bajo /api.
+app.use((req:any,_res:any,next:any)=>{
+  if(req.path!=='/'&&req.path!=='/api'&&!req.path.startsWith('/api/'))req.url=`/api${req.url}`;
+  next();
+});
 // Express 4 no reenvía automáticamente las promesas rechazadas por handlers async.
 // Este adaptador mantiene viva la API y responde JSON si Neon no está sincronizado.
 for (const method of ['get','post','put','patch','delete'] as const) {
