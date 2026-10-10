@@ -24,7 +24,7 @@ function publishTournamentUpdate(matchId?:string){
   const packet=`event: tournament:update\ndata: ${JSON.stringify({matchId,at:Date.now()})}\n\n`;
   for(const client of realtimeClients){try{client.write(packet)}catch{realtimeClients.delete(client)}}
 }
-app.get('/api/realtime/events', (_req,res) => {
+app.get('/api/realtime/events', (_req:any,res:any) => {
   res.status(200);res.setHeader('Content-Type','text/event-stream; charset=utf-8');res.setHeader('Cache-Control','no-cache, no-transform');res.setHeader('Connection','keep-alive');res.setHeader('X-Accel-Buffering','no');res.flushHeaders();
   realtimeClients.add(res);res.write('retry: 1200\nevent: ready\ndata: {}\n\n');
   const heartbeat=setInterval(()=>{if(!res.destroyed)res.write(': keepalive\n\n')},20000);
@@ -71,7 +71,7 @@ async function recalculateScore(matchId: string) {
   await prisma.partido.update({where:{id:matchId},data:{golesLocal:local,golesVisita:visita}});
 }
 
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', async (req:any, res:any) => {
   const { username, password } = req.body ?? {};
   const user = await prisma.usuario.findUnique({ where: { username } });
   if (!user?.activo || !await bcrypt.compare(password ?? '', user.passwordHash)) return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
@@ -79,16 +79,16 @@ app.post('/api/auth/login', async (req, res) => {
   res.json({ token, user: { id: user.id, username: user.username, rol: user.rol } });
 });
 
-app.get('/api/public/live', async (_req, res) => {
+app.get('/api/public/live', async (_req:any, res:any) => {
   const rows = await prisma.partido.findMany({ orderBy: [{ programadoPara: 'asc' }, { cancha: 'asc' }], include: { eventos: { orderBy: { creadoEn: 'desc' }, select:{id:true,tipo:true,minuto:true,segundo:true,equipo:true,creadoEn:true} }, ganador:{select:{id:true,nombre:true}} } });
   const partidos = await Promise.all(rows.map(withExpiredClockStopped));
   res.setHeader('Cache-Control', 'no-store'); res.json({ partidos });
 });
-app.get('/api/public/canchas', async (_req,res) => {
+app.get('/api/public/canchas', async (_req:any,res:any) => {
   const saved=await prisma.imagenCancha.findMany({orderBy:{cancha:'asc'}});
   res.setHeader('Cache-Control','no-store');res.json([1,2,3,4].map(cancha=>saved.find(item=>item.cancha===cancha)??{cancha,url:null}));
 });
-app.get('/api/public/canchas/:cancha/image', async (req,res) => {
+app.get('/api/public/canchas/:cancha/image', async (req:any,res:any) => {
   const cancha=Number(req.params.cancha);if(![1,2,3,4].includes(cancha))return res.sendStatus(404);
   const saved=await prisma.imagenCancha.findUnique({where:{cancha}});if(!saved?.url)return res.sendStatus(404);
   let id:string|null=null;
@@ -113,9 +113,9 @@ app.get('/api/public/canchas/:cancha/image', async (req,res) => {
   }
   res.status(502).json({error:'Drive no entregó el archivo como imagen. Comprueba que sea un JPG/PNG público y guarda de nuevo el enlace.'});
 });
-app.get('/api/matches/operations', auth, allow(...operators), async (_req,res) => res.json(await Promise.all((await prisma.partido.findMany({orderBy:[{programadoPara:'asc'},{cancha:'asc'}],include:{eventos:{orderBy:{creadoEn:'asc'}}}})).map(withExpiredClockStopped))));
-app.get('/api/public/equipos', async (_req,res) => res.json(await prisma.equipo.findMany({where:{activo:true},select:{id:true,nombre:true,delegado:true,eliminado:true},orderBy:{nombre:'asc'}})));
-app.post('/api/admin/equipos', auth, allow(Rol.ADMIN_MESA), async (req,res) => {
+app.get('/api/matches/operations', auth, allow(...operators), async (_req:any,res:any) => res.json(await Promise.all((await prisma.partido.findMany({orderBy:[{programadoPara:'asc'},{cancha:'asc'}],include:{eventos:{orderBy:{creadoEn:'asc'}}}})).map(withExpiredClockStopped))));
+app.get('/api/public/equipos', async (_req:any,res:any) => res.json(await prisma.equipo.findMany({where:{activo:true},select:{id:true,nombre:true,delegado:true,eliminado:true},orderBy:{nombre:'asc'}})));
+app.post('/api/admin/equipos', auth, allow(Rol.ADMIN_MESA), async (req:any,res:any) => {
   const nombre=String(req.body?.nombre??'').trim(),delegado=String(req.body?.delegado??'').trim();
   if(!nombre||nombre.length>60)return res.status(400).json({error:'El nombre debe tener entre 1 y 60 caracteres.'});
   if(!delegado||delegado.length>100)return res.status(400).json({error:'Ingresa el nombre del delegado (máximo 100 caracteres).'});
@@ -123,7 +123,7 @@ app.post('/api/admin/equipos', auth, allow(Rol.ADMIN_MESA), async (req,res) => {
   if(await prisma.partido.count({where:{estado:{in:[EstadoPartido.EN_JUEGO,EstadoPartido.DESCANSO,EstadoPartido.FINALIZADO,EstadoPartido.VALIDADO]}}}))return res.status(409).json({error:'No se inscriben nuevos equipos una vez iniciado el torneo.'});
   try{res.status(201).json(await prisma.equipo.create({data:{nombre,delegado}}));}catch{res.status(409).json({error:'Ya existe un equipo con ese nombre.'});}
 });
-app.put('/api/admin/canchas/:cancha/image', auth, allow(Rol.ADMIN_MESA), async (req,res) => {
+app.put('/api/admin/canchas/:cancha/image', auth, allow(Rol.ADMIN_MESA), async (req:any,res:any) => {
   const cancha=Number(req.params.cancha),raw=String(req.body?.url??'').trim();
   if(![1,2,3,4].includes(cancha))return res.status(400).json({error:'Cancha inválida.'});
   let url:string|null=null;
@@ -140,7 +140,7 @@ app.put('/api/admin/canchas/:cancha/image', auth, allow(Rol.ADMIN_MESA), async (
   }
   res.json(await prisma.imagenCancha.upsert({where:{cancha},create:{cancha,url},update:{url}}));
 });
-app.post('/api/admin/round-of-32', auth, allow(Rol.ADMIN_MESA), async (req,res) => {
+app.post('/api/admin/round-of-32', auth, allow(Rol.ADMIN_MESA), async (req:any,res:any) => {
   const entries=req.body?.partidos;
   if(!Array.isArray(entries)||entries.length!==16)return res.status(400).json({error:'Debes definir manualmente los 16 partidos de Dieciseisavos.'});
   if(await prisma.partido.count())return res.status(409).json({error:'Ya existe un fixture; no se puede volver a cargar Dieciseisavos.'});
