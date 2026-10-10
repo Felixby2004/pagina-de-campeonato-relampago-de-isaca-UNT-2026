@@ -1,7 +1,11 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, CalendarDays, Check, ChevronDown, Clock3, LogOut, Plus, ShieldCheck, Trophy, Users, Flag, Swords, Pencil, AlertTriangle, Trash2 } from 'lucide-react';
 
-const API=import.meta.env.VITE_API_URL||'http://localhost:3000/api';
+// Accept either the backend origin or an URL that already ends in /api.
+// Also guard against duplicated prefixes from Vercel env/path configuration.
+const API_ROOT=(import.meta.env.VITE_API_URL||'http://localhost:3000/api').replace(/\/+$/,'').replace(/(?:\/api)+$/i,'');
+const API=`${API_ROOT}/api`;
+const apiPath=(path:string)=>path.replace(/^(?:\/api)+(\/|$)/i,'$1');
 const OPERATORS=['PLANILLERO','ADMIN_MESA'];
 const ROUNDS=[['RONDA_32','Dieciseisavos','32 equipos · 16 partidos'],['OCTAVOS','Octavos de final','16 equipos · 8 partidos'],['CUARTOS','Cuartos de final','8 equipos · 4 partidos'],['SEMIFINAL','Semifinales','4 equipos · 2 partidos'],['TERCER_PUESTO','Tercer puesto','Partido por el tercer lugar'],['FINAL','Final','La final del torneo']] as const;
 const ROUND_NAME:Record<string,string>=Object.fromEntries(ROUNDS.map(([key,name])=>[key,name]));
@@ -10,7 +14,7 @@ type Team={id:string;nombre:string;eliminado?:boolean;delegado?:string|null};
 type Incident={id:string;tipo:string;minuto:number;segundo:number;jugador?:string;equipo:string;creadoEn:string};
 type Match={id:string;clockServerTime:number;clockReceivedAt:number;cancha:number;equipoLocal:string;equipoVisita:string;equipoLocalId:string|null;equipoVisitaId:string|null;fase:string;numeroEnFase:number;programadoPara:string|null;horaInicio:string|null;periodoActual:number;duracionPrimerTiempo:number;duracionSegundoTiempo:number;primerTiempoTranscurrido:number;golesLocal:number;golesVisita:number;penalesLocal:number;penalesVisita:number;penalesHechosLocal:number;penalesHechosVisita:number;ganadorId:string|null;ganador?:Team|null;esWO:boolean;woAusenteId:string|null;estado:string;clockSeconds:number;eventos:Incident[]};
 type CourtImage={cancha:number;url:string|null};
-async function api(path:string,token?:string,init:RequestInit={}){const response=await fetch(`${API}${path}`,{...init,headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{}) ,...init.headers}});if(!response.ok)throw new Error((await response.json().catch(()=>({}))).error||'No se pudo completar la solicitud');return response.status===204?null:response.json()}
+async function api(path:string,token?:string,init:RequestInit={}){const response=await fetch(`${API}${apiPath(path)}`,{...init,headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{}) ,...init.headers}});if(!response.ok)throw new Error((await response.json().catch(()=>({}))).error||'No se pudo completar la solicitud');return response.status===204?null:response.json()}
 const fmtTime=(seconds:number)=>`${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}`;
 const fmtDate=(value?:string|null)=>value?new Intl.DateTimeFormat('es-PE',{dateStyle:'medium',timeStyle:'short'}).format(new Date(value)):'Horario por confirmar';
 function remainingSeconds(m:Match,elapsed=m.clockSeconds){const duration=m.periodoActual===2?m.duracionSegundoTiempo:m.duracionPrimerTiempo;const periodElapsed=m.periodoActual===2?Math.max(0,elapsed-m.primerTiempoTranscurrido):elapsed;return Math.max(0,duration-periodElapsed)}
