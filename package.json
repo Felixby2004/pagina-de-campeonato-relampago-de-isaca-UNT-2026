@@ -1,0 +1,22 @@
+{
+  "name": "mesa-central-isaca",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c blue,green \"npm:dev --workspace=@mesa/api\" \"npm:dev --workspace=@mesa/web\"",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:seed": "prisma db seed",
+    "db:seed:teams-demo": "tsx prisma/seed-equipos-demo.ts"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "prisma": "^6.5.0",
+    "tsx": "^4.19.3"
+  }
+}

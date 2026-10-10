@@ -1,0 +1,144 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/mesa-client-v2"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Equipo {
+  id          String   @id @default(cuid())
+  nombre      String   @unique
+  delegado    String?
+  activo      Boolean  @default(true)
+  eliminado   Boolean  @default(false)
+  creadoEn    DateTime @default(now())
+  partidosLocal Partido[] @relation("EquipoLocal")
+  partidosVisita Partido[] @relation("EquipoVisita")
+  woAusencias Partido[] @relation("WOAusente")
+  partidosGanados Partido[] @relation("GanadorPartido")
+}
+
+enum Rol {
+  PUBLICO
+  PLANILLERO
+  ADMIN_MESA
+}
+
+enum EstadoPartido {
+  POR_INICIAR
+  EN_JUEGO
+  DESCANSO
+  FINALIZADO
+  VALIDADO
+}
+
+enum FaseTorneo {
+  RONDA_32
+  OCTAVOS
+  CUARTOS
+  SEMIFINAL
+  TERCER_PUESTO
+  FINAL
+}
+
+enum TipoEvento {
+  GOL
+  TARJETA_AMARILLA
+  TARJETA_ROJA
+  CAMBIO
+}
+
+enum EstadoActa {
+  ABIERTA
+  ENVIADA
+  APROBADA
+  OBSERVADA
+}
+
+model Usuario {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  rol          Rol      @default(PUBLICO)
+  activo       Boolean  @default(true)
+  creadoEn     DateTime @default(now())
+  actas        Acta[]
+}
+
+model Partido {
+  id             String        @id @default(cuid())
+  cancha         Int
+  equipoLocal    String
+  equipoVisita   String
+  equipoLocalId  String?
+  equipoVisitaId String?
+  programadoPara DateTime?
+  fase           FaseTorneo    @default(RONDA_32)
+  numeroEnFase   Int           @default(1)
+  periodoActual  Int           @default(1)
+  duracionPrimerTiempo Int     @default(600)
+  duracionSegundoTiempo Int    @default(600)
+  primerTiempoTranscurrido Int @default(0)
+  esWO           Boolean       @default(false)
+  woAusenteId    String?
+  ganadorId      String?
+  penalesLocal   Int           @default(0)
+  penalesVisita  Int           @default(0)
+  penalesHechosLocal Int       @default(0)
+  penalesHechosVisita Int      @default(0)
+  golesLocal     Int           @default(0)
+  golesVisita    Int           @default(0)
+  estado         EstadoPartido @default(POR_INICIAR)
+  horaInicio     DateTime?
+  minutoActual   Int           @default(0)
+  relojSegundos  Int           @default(0)
+  relojIniciadoEn DateTime?
+  actualizadoEn  DateTime      @updatedAt
+  eventos        Evento[]
+  actas          Acta[]
+  local          Equipo?       @relation("EquipoLocal", fields: [equipoLocalId], references: [id], onDelete: SetNull)
+  visita         Equipo?       @relation("EquipoVisita", fields: [equipoVisitaId], references: [id], onDelete: SetNull)
+  equipoAusente  Equipo?       @relation("WOAusente", fields: [woAusenteId], references: [id], onDelete: SetNull)
+  ganador        Equipo?       @relation("GanadorPartido", fields: [ganadorId], references: [id], onDelete: SetNull)
+  @@index([estado, cancha])
+  @@index([actualizadoEn])
+}
+
+model ImagenCancha {
+  cancha        Int      @id
+  url           String?
+  actualizadoEn DateTime @updatedAt
+}
+
+model Evento {
+  id        String     @id @default(cuid())
+  partidoId String
+  tipo      TipoEvento
+  minuto    Int
+  segundo   Int          @default(0)
+  jugador   String
+  equipo    String
+  detalle   String?
+  creadoEn  DateTime   @default(now())
+  partido   Partido    @relation(fields: [partidoId], references: [id], onDelete: Cascade)
+  @@index([partidoId, creadoEn])
+}
+
+model Acta {
+  id          String      @id @default(cuid())
+  partidoId   String
+  usuarioId   String
+  estado      EstadoActa  @default(ENVIADA)
+  comentario  String?
+  enviadaEn   DateTime    @default(now())
+  revisadaEn  DateTime?
+  partido     Partido     @relation(fields: [partidoId], references: [id], onDelete: Cascade)
+  usuario     Usuario     @relation(fields: [usuarioId], references: [id])
+  @@index([estado, enviadaEn])
+}
+
+// La ficha del equipo guarda nombre y delegado; las incidencias mantienen el nombre consignado en el acta.
