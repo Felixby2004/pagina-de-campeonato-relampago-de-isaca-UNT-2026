@@ -165,9 +165,9 @@ app.post('/api/admin/round-of-32', auth, allow(Rol.ADMIN_MESA), async (req,res) 
   }
   const created=await prisma.$transaction(normalized.map(data=>prisma.partido.create({data})));
   res.status(201).json({cantidad:created.length,partidos:created});
-});app.get('/api/me', auth, (req:any,res) => res.json(req.user));
+});app.get('/api/me', auth, (req:any,res:any) => res.json(req.user));
 
-app.post('/api/admin/matches', auth, allow(Rol.ADMIN_MESA), async (req,res) => {
+app.post('/api/admin/matches', auth, allow(Rol.ADMIN_MESA), async (req:any,res:any) => {
   const { programadoPara, fase } = req.body ?? {};
   if(!Object.values(FaseTorneo).includes(fase))return res.status(400).json({error:'Selecciona una fase válida del torneo.'});
   if(fase===FaseTorneo.RONDA_32)return res.status(400).json({error:'Dieciseisavos se carga desde el sorteo manual de 16 partidos.'});
@@ -205,7 +205,7 @@ app.post('/api/admin/matches', auth, allow(Rol.ADMIN_MESA), async (req,res) => {
   res.status(201).json(match);
 });
 
-app.post('/api/matches/:id/events', auth, async (req:any,res) => {
+app.post('/api/matches/:id/events', auth, async (req:any,res:any) => {
   const match = await prisma.partido.findUnique({ where:{id:req.params.id} });
   if (!match) return res.status(404).json({error:'Partido no encontrado'});
   if (!operators.includes(req.user.rol)) return res.status(403).json({error:'No tienes permiso para registrar eventos'});
@@ -223,7 +223,7 @@ app.post('/api/matches/:id/events', auth, async (req:any,res) => {
   await recalculateScore(match.id);
   res.status(201).json(event);
 });
-app.patch('/api/matches/:id/events/:eventId', auth, async (req:any,res) => {
+app.patch('/api/matches/:id/events/:eventId', auth, async (req:any,res:any) => {
   if (!operators.includes(req.user.rol)) return res.sendStatus(403);
   const match=await prisma.partido.findUnique({where:{id:req.params.id}}); if(!match)return res.sendStatus(404);
   if(match.estado===EstadoPartido.VALIDADO)return res.status(409).json({error:'El acta ya fue enviada.'});
@@ -233,14 +233,14 @@ app.patch('/api/matches/:id/events/:eventId', auth, async (req:any,res) => {
   if(!Object.values(TipoEvento).includes(tipo)||tipo===TipoEvento.CAMBIO||![match.equipoLocal,match.equipoVisita].includes(equipo)||!Number.isInteger(minuto)||minuto<0||!Number.isInteger(segundo)||segundo<0||segundo>59)return res.status(400).json({error:'Incidencia inválida.'});
   const updated=await prisma.evento.update({where:{id:event.id},data:{tipo,equipo,jugador,minuto,segundo}});await recalculateScore(match.id);res.json(updated);
 });
-app.delete('/api/matches/:id/events/:eventId', auth, async (req:any,res) => {
+app.delete('/api/matches/:id/events/:eventId', auth, async (req:any,res:any) => {
   if (!operators.includes(req.user.rol)) return res.sendStatus(403);
   const match=await prisma.partido.findUnique({where:{id:req.params.id}});if(!match)return res.sendStatus(404);
   if(match.estado===EstadoPartido.VALIDADO)return res.status(409).json({error:'El acta ya fue enviada.'});
   const event=await prisma.evento.findFirst({where:{id:req.params.eventId,partidoId:match.id}});if(!event)return res.sendStatus(404);
   await prisma.evento.delete({where:{id:event.id}});await recalculateScore(match.id);res.sendStatus(204);
 });
-app.patch('/api/matches/:id/wo', auth, async (req:any,res) => {
+app.patch('/api/matches/:id/wo', auth, async (req:any,res:any) => {
   if(!operators.includes(req.user.rol))return res.sendStatus(403);
   const match=await prisma.partido.findUnique({where:{id:req.params.id}});if(!match)return res.sendStatus(404);
   if(match.estado===EstadoPartido.VALIDADO)return res.status(409).json({error:'El acta ya fue enviada.'});
@@ -253,7 +253,7 @@ app.patch('/api/matches/:id/wo', auth, async (req:any,res) => {
   });
   res.json(withClock(updated));
 });
-app.patch('/api/matches/:id/durations', auth, async (req:any,res) => {
+app.patch('/api/matches/:id/durations', auth, async (req:any,res:any) => {
   if(!operators.includes(req.user.rol))return res.sendStatus(403);
   const match=await prisma.partido.findUnique({where:{id:req.params.id}});if(!match)return res.sendStatus(404);
   if(match.estado===EstadoPartido.EN_JUEGO||match.estado===EstadoPartido.VALIDADO)return res.status(409).json({error:'Pausa el partido antes de cambiar las duraciones.'});
@@ -261,7 +261,7 @@ app.patch('/api/matches/:id/durations', auth, async (req:any,res) => {
   if(!Number.isInteger(first)||first<1||first>90||!Number.isInteger(second)||second<1||second>90)return res.status(400).json({error:'Cada tiempo debe durar entre 1 y 90 minutos.'});
   res.json(await prisma.partido.update({where:{id:match.id},data:{duracionPrimerTiempo:first*60,duracionSegundoTiempo:second*60}}));
 });
-app.patch('/api/matches/:id/state', auth, async (req:any,res) => {
+app.patch('/api/matches/:id/state', auth, async (req:any,res:any) => {
   const match=await prisma.partido.findUnique({where:{id:req.params.id}}); if(!match)return res.sendStatus(404);
   if(![Rol.PLANILLERO,Rol.ADMIN_MESA].includes(req.user.rol))return res.sendStatus(403);
   if(![EstadoPartido.EN_JUEGO,EstadoPartido.DESCANSO,EstadoPartido.FINALIZADO].includes(req.body.estado))return res.status(400).json({error:'Estado inválido'});
@@ -279,7 +279,7 @@ app.patch('/api/matches/:id/state', auth, async (req:any,res) => {
   if([EstadoPartido.DESCANSO,EstadoPartido.FINALIZADO].includes(req.body.estado)&&match.estado===EstadoPartido.EN_JUEGO){const seconds=getClockSeconds(match,now.getTime());data.relojSegundos=seconds;data.minutoActual=Math.floor(seconds/60);data.relojIniciadoEn=null;}
   res.json(withClock(await prisma.partido.update({where:{id:match.id},data})));
 });
-app.post('/api/matches/:id/penales', auth, async (req:any,res) => {
+app.post('/api/matches/:id/penales', auth, async (req:any,res:any) => {
   if(!operators.includes(req.user.rol))return res.sendStatus(403);
   const match=await prisma.partido.findUnique({where:{id:req.params.id}});if(!match)return res.sendStatus(404);
   if(match.estado===EstadoPartido.VALIDADO)return res.status(409).json({error:'El acta ya fue enviada.'});
@@ -296,7 +296,7 @@ app.post('/api/matches/:id/penales', auth, async (req:any,res) => {
   const winnerId=shootoutWinner({...match,penalesHechosLocal:nextLocal,penalesHechosVisita:nextAway,penalesLocal:scoreLocal,penalesVisita:scoreAway});
   res.json(await prisma.partido.update({where:{id:match.id},data:{penalesHechosLocal:nextLocal,penalesHechosVisita:nextAway,penalesLocal:scoreLocal,penalesVisita:scoreAway,ganadorId:winnerId}}));
 });
-app.post('/api/matches/:id/submit', auth, async (req:any,res) => {
+app.post('/api/matches/:id/submit', auth, async (req:any,res:any) => {
   const match=await prisma.partido.findUnique({where:{id:req.params.id}}); if(!match)return res.sendStatus(404);
   if(!operators.includes(req.user.rol))return res.sendStatus(403);
   if(match.estado===EstadoPartido.VALIDADO)return res.status(409).json({error:'Este partido ya tiene un acta enviada.'});
@@ -315,8 +315,8 @@ app.post('/api/matches/:id/submit', auth, async (req:any,res) => {
   });
   res.status(201).json(acta);
 });
-app.get('/api/admin/actas', auth, allow(...operators), async (_req,res) => res.json(await prisma.acta.findMany({where:{estado:EstadoActa.ENVIADA},include:{partido:{include:{eventos:true}},usuario:{select:{username:true}}},orderBy:{enviadaEn:'asc'}})));
-app.patch('/api/admin/actas/:id', auth, allow(Rol.ADMIN_MESA), async (req,res) => {
+app.get('/api/admin/actas', auth, allow(...operators), async (_req:any,res:any) => res.json(await prisma.acta.findMany({where:{estado:EstadoActa.ENVIADA},include:{partido:{include:{eventos:true}},usuario:{select:{username:true}}},orderBy:{enviadaEn:'asc'}})));
+app.patch('/api/admin/actas/:id', auth, allow(Rol.ADMIN_MESA), async (req:any,res:any) => {
   const { decision, comentario }=req.body??{}; if(!['APROBADA','OBSERVADA'].includes(decision))return res.status(400).json({error:'Decisión inválida'});
   const acta=await prisma.acta.update({where:{id:req.params.id},data:{estado:decision,comentario,revisadaEn:new Date()},include:{partido:true}});
   if(decision==='APROBADA')await prisma.partido.update({where:{id:acta.partidoId},data:{estado:EstadoPartido.VALIDADO}});
